@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>News</title>
+</head>
+
+<body>
+    {% for news in news_list %}
+        <p>{{ news.text }}</p>
+        <form actiron="{% url 'news' %}" method="post">
+            {% csrf_token %}
+            <input type="number" name="stamp">
+            <input type="hidden" name="news" value="{{ news.id }}">
+            <input type="submit">
+        </form>
+    {% endfor %}
+</body>
+</html>
