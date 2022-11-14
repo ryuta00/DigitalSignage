@@ -7,11 +7,13 @@ from . import views
 urlpatterns = [
     path('login/', views.login, name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('social-auth/', include('social_django.urls', namespace='social')),
-    path('news/', views.news, name='news'),
-    path('start/', views.start, name='start'),
-    path('match/', views.match, name='match'),
-    path('signup/', views.signup, name='signup'),
+    path('social-auth/', include('social_django.urls', namespace='social')),  # Googleログイン
+    path('news/<news>/', views.news, name='news'),  # ニュースを表示, 顔認証
+    path('news/<news>/<user>/', views.reaction, name='reaction'),  # ニュースを表示, リアクションを取得
+    path('start/', views.start, name='start'),  # 初期設定(初期データを登録), テータをリセットした時に行う
+    path('match/<news>/', views.match, name='match'),  # 顔認証によるログイン
+    path('camera/<news>/<user>/', views.camera, name='camera'),  # どちらの手を挙げているか調べる
+    path('signup/', views.signup, name='signup'),  # 写真をアップロードして生徒登録
     path("", views.home, name='home'),
 ]
 

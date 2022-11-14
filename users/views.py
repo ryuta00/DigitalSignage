@@ -4,15 +4,22 @@ from django.contrib.auth.decorators import login_required
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from PIL import Image
 import numpy as np
+import tensorflow as tf
+import tensorflow_hub as hub
 import uuid
 import cv2
 
-from users.models import News, Reaction, Student
+from users.models import News, Reaction, Student, StudentReaction
 from users.forms import ImageUploadForm
 from django.conf import settings
 
-
+# 顔認証用変数
 img_size = 160
+
+# 姿勢推定のモデルダウンロード
+model = hub.load('https://tfhub.dev/google/movenet/multipose/lightning/1')
+movenet = model.signatures['serving_default']
+KEYPOINT_THRESHOLD = 0.2
 
 
 # 生徒の顔写真データを保存する
@@ -69,24 +76,170 @@ def home(request):
     return render(request, 'home.html')
 
 
-@login_required
-def news(request):
-    if request.method == 'POST':
-        Reaction.objects.create(
-            user=request.user,
-            stamp=request.POST['stamp'],
-            news=News.objects.get(id=request.POST['news'])
-        )
-        return redirect("news")
-
-    else:
-        ctx = {
-            "news_list": News.objects.all()
-        }
-        return render(request, 'news.html', ctx)
+# ニュースを表示
+# ニュースを表示したらユーザー認証を開始
+def news(request, news):
+    ctx = {
+        "news": News.objects.get(id=news)
+    }
+    return render(request, 'news.html', ctx)
 
 
-def match(request):
+# ユーザー認証後もニュースを表示
+# ユーザーのリアクションを測定開始
+def reaction(request, news, user):
+    ctx = {
+        "news": News.objects.get(id=news),
+        "user": Student.objects.get(id=user)
+    }
+    return render(request, 'reaction.html', ctx)
+
+
+# # @login_required
+# def index(request):
+#     if request.method == 'POST':
+#         Reaction.objects.create(
+#             user=request.user,
+#             stamp=request.POST['stamp'],
+#             news=News.objects.get(id=request.POST['news'])
+#         )
+#         return redirect("index")
+#
+#     else:
+#         ctx = {
+#             "news_list": News.objects.all()
+#         }
+#         return render(request, 'index.html', ctx)
+
+
+def camera(request, news, user):
+    # カメラ設定
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    rightpoint = 0
+    leftpoint = 0
+    checkcount = 0
+
+    while (checkcount <= 10000):
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # 推論実行
+        keypoints_list, scores_list, bbox_list = run_inference(movenet, frame)
+
+        # 画像レンダリング
+        result_image, rightpoint, leftpoint = myrender(frame, keypoints_list, scores_list, bbox_list, rightpoint, leftpoint)
+
+        if rightpoint >= 30:
+            print("右手だーーーーーーー")
+            StudentReaction.objects.create(
+                user=Student.objects.get(id=user),
+                stamp=1,
+                news=News.objects.get(id=news)
+            )
+            ctx = {
+                "user": Student.objects.get(id=user),
+                "reaction": "ok"
+            }
+            return render(request, 'result.html', ctx)
+        if leftpoint >= 30:
+            print("左手だーーーーーーー")
+            StudentReaction.objects.create(
+                user=Student.objects.get(id=user),
+                stamp=0,
+                news=News.objects.get(id=news)
+            )
+            ctx = {
+                "user": Student.objects.get(id=user),
+                "reaction": "no"
+            }
+            return render(request, 'result.html', ctx)
+        checkcount += 1
+
+    return redirect("reaction", news=news, user=user)
+
+
+def run_inference(model, image):
+    # 画像の前処理
+    input_image = cv2.resize(image, dsize=(256, 256))
+    input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+    input_image = np.expand_dims(input_image, 0)
+    input_image = tf.cast(input_image, dtype=tf.int32)
+
+    # 推論実行・結果取得
+    outputs = model(input_image)
+    keypoints = np.squeeze(outputs['output_0'].numpy())
+
+    image_height, image_width = image.shape[:2]
+    keypoints_list, scores_list, bbox_list = [], [], []
+
+    # 検出した人物ごとにキーポイントのフォーマット処理
+    for kp in keypoints:
+        keypoints = []
+        scores = []
+        for index in range(17):
+            kp_x = int(image_width * kp[index * 3 + 1])
+            kp_y = int(image_height * kp[index * 3 + 0])
+            score = kp[index * 3 + 2]
+            keypoints.append([kp_x, kp_y])
+            scores.append(score)
+        bbox_ymin = int(image_height * kp[51])
+        bbox_xmin = int(image_width * kp[52])
+        bbox_ymax = int(image_height * kp[53])
+        bbox_xmax = int(image_width * kp[54])
+        bbox_score = kp[55]
+
+        keypoints_list.append(keypoints)
+        scores_list.append(scores)
+        bbox_list.append([bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax, bbox_score])
+
+    return keypoints_list, scores_list, bbox_list
+
+
+def myrender(image, keypoints_list, scores_list, bbox_list, rightpoint, leftpoint):
+    render = image.copy()
+    for i, (keypoints, scores, bbox) in enumerate(zip(keypoints_list, scores_list, bbox_list)):
+        if bbox[4] < 0.2:
+            continue
+
+        cv2.rectangle(render, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+
+        # 0:nose, 1:left eye, 2:right eye, 3:left ear, 4:right ear, 5:left shoulder, 6:right shoulder, 7:left elbow, 8:right elbow, 9:left wrist, 10:right wrist,
+        # 11:left hip, 12:right hip, 13:left knee, 14:right knee, 15:left ankle, 16:right ankle
+        # 接続するキーポイントの組
+        kp_links = [
+            (0, 1), (0, 2), (1, 3), (2, 4), (0, 5), (0, 6), (5, 6), (5, 7), (7, 9), (6, 8),
+            (8, 10), (11, 12), (5, 11), (11, 13), (13, 15), (6, 12), (12, 14), (14, 16)
+        ]
+        for kp_idx_1, kp_idx_2 in kp_links:
+            kp_1 = keypoints[kp_idx_1]
+            kp_2 = keypoints[kp_idx_2]
+            score_1 = scores[kp_idx_1]
+            score_2 = scores[kp_idx_2]
+            if score_1 > KEYPOINT_THRESHOLD and score_2 > KEYPOINT_THRESHOLD:
+                cv2.line(render, tuple(kp_1), tuple(kp_2), (0, 0, 255), 2)
+
+        for idx, (keypoint, score) in enumerate(zip(keypoints, scores)):
+            if score > KEYPOINT_THRESHOLD:
+                cv2.circle(render, tuple(keypoint), 4, (0, 0, 255), -1)
+
+        if keypoints[10][1] <= keypoints[6][1]:
+            print("----------------------\n \n \n 挙手：右")
+            rightpoint += 1
+            print(keypoints[10])
+
+        if keypoints[9][1] <= keypoints[5][1]:
+            print("----------------------\n \n \n 挙手：左")
+            leftpoint += 1
+            print(keypoints[9])
+
+    return render, rightpoint, leftpoint
+
+
+# ユーザー認証
+def match(request, news):
     students = Student.objects.all()
     students_data = {}
     for student in students:
@@ -108,7 +261,7 @@ def match(request):
         cv2.imshow('Face Match', frame)
 
         k = cv2.waitKey(10)
-        if k == 27:
+        if k == 100:
             break
 
         # numpy to PIL
@@ -126,10 +279,6 @@ def match(request):
             score = 0.0
             for key in students_data:
                 x1 = students_data[key]
-                print("--------------------")
-                print(key)
-                print(cos_similarity(x1, x2))
-                print("---------------------")
                 if cos_similarity(x1, x2) > 0.7:
                     user_id = key
                     score = cos_similarity(x1, x2)
@@ -150,11 +299,11 @@ def match(request):
     cv2.destroyAllWindows()
 
     if user_id:
-        print("ここ")
-        return HttpResponse('顔認証 : ' + Student.objects.get(id=user_id).name)
+        print("ログイン：" + Student.objects.get(id=user_id).name)
+        return redirect("reaction", news=news, user=user_id)
     else:
-        print("here")
-        return HttpResponse('顔認証 : 該当するユーザーがいません！')
+        print("登録済みユーザーと合致せず。全画面にリダイレクト")
+        return redirect("news", news=news)
 
 
 def face(request):
@@ -176,10 +325,10 @@ def start(request):
     # 2、3つ目を登録されている人とします。
     image_path = settings.STATIC_ROOT + "/images/face.jpg"
     image_path1 = settings.STATIC_ROOT + "/images/face.jpg"
-    image_path2 = settings.STATIC_ROOT + "/images/face2.jpg"
-    image_path3 = settings.STATIC_ROOT + "/images/face3.jpg"
+    #image_path2 = settings.STATIC_ROOT + "/images/face2.jpg"
+    #image_path3 = settings.STATIC_ROOT + "/images/face3.jpg"
 
-    img0 = Image.open(image_path2)
+    img0 = Image.open(image_path)
     img_cropped0 = mtcnn(img0)
     img_embedding0 = resnet(img_cropped0.unsqueeze(0))
 
@@ -194,24 +343,24 @@ def start(request):
     img_embedding1 = resnet(img_cropped1.unsqueeze(0))
 
     # (仮)登録されたカメラと同じ人
-    img2 = Image.open(image_path2)
-    img_cropped2 = mtcnn(img2)
-    img_embedding2 = resnet(img_cropped2.unsqueeze(0))
+    #img2 = Image.open(image_path2)
+    #img_cropped2 = mtcnn(img2)
+    #img_embedding2 = resnet(img_cropped2.unsqueeze(0))
 
     # (仮)登録されたカメラと違う人
-    img3 = Image.open(image_path3)
-    img_cropped3 = mtcnn(img3)
-    img_embedding3 = resnet(img_cropped3.unsqueeze(0))
+    #img3 = Image.open(image_path3)
+    #img_cropped3 = mtcnn(img3)
+    #img_embedding3 = resnet(img_cropped3.unsqueeze(0))
 
     # 512個の数字にしたものはpytorchのtensorという型なので、numpyの方に変換
     p0 = img_embedding0.squeeze().to('cpu').detach().numpy().copy()
     p1 = img_embedding1.squeeze().to('cpu').detach().numpy().copy()
-    p2 = img_embedding2.squeeze().to('cpu').detach().numpy().copy()
-    p3 = img_embedding3.squeeze().to('cpu').detach().numpy().copy()
+    #p2 = img_embedding2.squeeze().to('cpu').detach().numpy().copy()
+    #p3 = img_embedding3.squeeze().to('cpu').detach().numpy().copy()
 
     # 類似度を計算して顔認証
-    img1vs2 = cos_similarity(p1, p2)
-    img1vs3 = cos_similarity(p1, p3)
+    #img1vs2 = cos_similarity(p1, p2)
+    #img1vs3 = cos_similarity(p1, p3)
 
     # ユーザー登録
     Student.objects.create(
@@ -223,16 +372,6 @@ def start(request):
         name="野口龍太B",
         mail="s1f101900936@iniad.org",
         vector_path=save_vector(p1)
-    )
-    Student.objects.create(
-        name="野口龍太C",
-        mail="s1f101900936@iniad.org",
-        vector_path=save_vector(p2)
-    )
-    Student.objects.create(
-        name="野口龍D",
-        mail="s1f101900936@iniad.org",
-        vector_path=save_vector(p3)
     )
 
     return HttpResponse(p1)

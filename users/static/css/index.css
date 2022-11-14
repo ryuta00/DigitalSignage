@@ -1,25 +1,72 @@
-.container-fluid {
-    height: 100vh;
-    background-color: rgb(81, 73, 73);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+html{
+    font-family:'Courier New';
 }
-.container-fluid > div {
-    width: 85%;
-    min-width: 300px;
-    max-width: 500px;
-}
-.card{
+
+body {
     width: 100%;
-    background-color: #e3e7ec;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    background-color:whitesmoke;
+
 }
-.social-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+
+button, input, select, textarea {
+    font-family : inherit;
+    font-size   : 100%;
 }
-.btn a, .btn a:hover {
-    color: white;
-    text-decoration: none;
+
+
+
+
+h1 {
+    padding: 20px;
+    border-bottom: solid 4px #333377;
+    font-size: 40px;
+    padding-bottom: 2px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+h2 {
+    margin: 30px;
+    text-align: center;
+}
+
+p {
+    font-size: 25px;
+    text-align: center;
+}
+
+.request {
+    color: #e4606d;
+}
+
+.main {
+    width: 90%;
+    margin: 0 auto;
+}
+
+.reaction {
+    text-align: center;
+}
+
+.icon {
+    width: 180px;
+    display: inline-block;
+    margin: 50px 120px 0px 120px;
+}
+
+.human {
+    text-align: center;
+}
+
+.pict {
+    width: 200px;
+    display: inline-block;
+    margin: 50px 120px 100px 120px;
+}
+
+.left {
+    transform: scale(-1, 1);
 }
