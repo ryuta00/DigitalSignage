@@ -49,6 +49,21 @@ def cos_similarity(p1, p2):
     return np.dot(p1, p2) / (np.linalg.norm(p1) * np.linalg.norm(p2))
 
 
+# 画像からStudentを作成
+def create_student(image_path):
+    mtcnn = MTCNN(image_size=160, margin=10)
+    resnet = InceptionResnetV1(pretrained='vggface2').eval()
+    img = Image.open(settings.STATIC_ROOT + "/images/dataset/" + image_path)
+    img_cropped = mtcnn(img)
+    img_embedding = resnet(img_cropped.unsqueeze(0))
+    p = img_embedding.squeeze().to('cpu').detach().numpy().copy()
+    Student.objects.create(
+        name=image_path,
+        mail="sample@email.com",
+        vector_path=save_vector(p)
+    )
+
+
 def login(request):
     return render(request, 'login.html')
 
@@ -83,6 +98,24 @@ def news(request, news):
         "news": News.objects.get(id=news)
     }
     return render(request, 'news.html', ctx)
+
+
+# 大学シナリオのニュースを表示
+def univ(request, user):
+    ctx = {
+        "news": News.objects.get(id=1),
+        "user": Student.objects.get(id=user)
+    }
+    return render(request, 'univ.html', ctx)
+
+
+# 団地シナリオのニュースを表示
+def apart(request, user):
+    ctx = {
+        "news": News.objects.get(id=2),
+        "user": Student.objects.get(id=user)
+    }
+    return render(request, 'apart.html', ctx)
 
 
 # ユーザー認証後もニュースを表示
@@ -141,7 +174,8 @@ def camera(request, news, user):
             )
             ctx = {
                 "user": Student.objects.get(id=user),
-                "reaction": "ok"
+                "reaction": "ok",
+                "news": news
             }
             return render(request, 'result.html', ctx)
         if leftpoint >= 30:
@@ -153,7 +187,8 @@ def camera(request, news, user):
             )
             ctx = {
                 "user": Student.objects.get(id=user),
-                "reaction": "no"
+                "reaction": "no",
+                "news": news,
             }
             return render(request, 'result.html', ctx)
         checkcount += 1
@@ -254,7 +289,6 @@ def match(request, news):
     cap = cv2.VideoCapture(0)
 
     user_id = ""
-    score = 0.0
     check_count = 0.0
     while True:
         ret, frame = cap.read()
@@ -276,12 +310,11 @@ def match(request, news):
             x2 = img_embedding.squeeze().to('cpu').detach().numpy().copy()
 
             user_id = ""
-            score = 0.0
             for key in students_data:
                 x1 = students_data[key]
+                print(key)
                 if cos_similarity(x1, x2) > 0.7:
                     user_id = key
-                    score = cos_similarity(x1, x2)
                     break
 
             check_count += 1.0
@@ -292,7 +325,7 @@ def match(request, news):
         if user_id:
             break
 
-        if check_count > 20:
+        if check_count > 100:
             break
 
     cap.release()
@@ -306,9 +339,6 @@ def match(request, news):
         return redirect("news", news=news)
 
 
-def face(request):
-    return render(request, 'match.html')
-
 
 def start(request):
     # 顔検出のAI
@@ -320,47 +350,19 @@ def start(request):
     # 1回目の実行では学習済みのモデルをダウンロードしますので、少し時間かかります。
     resnet = InceptionResnetV1(pretrained='vggface2').eval()
 
-    # 三人分の比較をします。
-    # 1つ目をカメラで取得した人として
-    # 2、3つ目を登録されている人とします。
     image_path = settings.STATIC_ROOT + "/images/face.jpg"
-    image_path1 = settings.STATIC_ROOT + "/images/face.jpg"
-    #image_path2 = settings.STATIC_ROOT + "/images/face2.jpg"
-    #image_path3 = settings.STATIC_ROOT + "/images/face3.jpg"
 
     img0 = Image.open(image_path)
     img_cropped0 = mtcnn(img0)
     img_embedding0 = resnet(img_cropped0.unsqueeze(0))
 
-    # (仮)カメラで取得した方
-    # 画像データ取得
-    img1 = Image.open(image_path1)
-    # 顔データを160×160に切り抜き
-    img_cropped1 = mtcnn(img1)
-    # save_pathを指定すると、切り取った顔画像が確認できます。
-    # img_cropped1 = mtcnn(img1, save_path="cropped_img1.jpg")
-    # 切り抜いた顔データを512個の数字に
-    img_embedding1 = resnet(img_cropped1.unsqueeze(0))
-
-    # (仮)登録されたカメラと同じ人
-    #img2 = Image.open(image_path2)
-    #img_cropped2 = mtcnn(img2)
-    #img_embedding2 = resnet(img_cropped2.unsqueeze(0))
-
-    # (仮)登録されたカメラと違う人
-    #img3 = Image.open(image_path3)
-    #img_cropped3 = mtcnn(img3)
-    #img_embedding3 = resnet(img_cropped3.unsqueeze(0))
 
     # 512個の数字にしたものはpytorchのtensorという型なので、numpyの方に変換
     p0 = img_embedding0.squeeze().to('cpu').detach().numpy().copy()
-    p1 = img_embedding1.squeeze().to('cpu').detach().numpy().copy()
-    #p2 = img_embedding2.squeeze().to('cpu').detach().numpy().copy()
-    #p3 = img_embedding3.squeeze().to('cpu').detach().numpy().copy()
-
-    # 類似度を計算して顔認証
-    #img1vs2 = cos_similarity(p1, p2)
-    #img1vs3 = cos_similarity(p1, p3)
+    # テストデータ登録
+    for i in range(0, 400):
+        name = str(i) + ".jpg"
+        create_student(name)
 
     # ユーザー登録
     Student.objects.create(
@@ -368,10 +370,15 @@ def start(request):
         mail="s1f101900936@iniad.org",
         vector_path=save_vector(p0)
     )
-    Student.objects.create(
-        name="野口龍太B",
-        mail="s1f101900936@iniad.org",
-        vector_path=save_vector(p1)
+
+    News.objects.create(
+        title="12/18 CS概論Ⅲ 受講形式について",
+        text="12月18日（月）3限のCS概論Ⅲは、受講形式をオンラインで受けるか対面で受けるかを選択できます。事前に回答してください。"
     )
 
-    return HttpResponse(p1)
+    News.objects.create(
+        title="自動火災報知器保守点検・実施のお知らせ",
+        text="自動火災報知器の定期点検を12月23日13時より実施いたします。当日ご都合の悪い方は事前にお知らせください。"
+    )
+
+    return HttpResponse(p0)
