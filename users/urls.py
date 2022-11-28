@@ -5,6 +5,9 @@ from django.conf.urls.static import static
 from . import views
 
 urlpatterns = [
+    path('news/1/<user>/', views.univ, name='univ'),  # 大学シナリオのニュース
+    path('news/2/<user>/', views.apart, name='apart'),  # 団地シナリオのニュース
+
     path('login/', views.login, name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('social-auth/', include('social_django.urls', namespace='social')),  # Googleログイン
