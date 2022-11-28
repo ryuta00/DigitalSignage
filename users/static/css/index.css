@@ -16,26 +16,25 @@ button, input, select, textarea {
     font-size   : 100%;
 }
 
-
-
-
 h1 {
-    padding: 20px;
+    padding-top: 100px;
+    padding-bottom: 40px;
     border-bottom: solid 4px #333377;
-    font-size: 40px;
-    padding-bottom: 2px;
-    margin-bottom: 20px;
+    font-size: 80px;
     text-align: center;
 }
 
 h2 {
-    margin: 30px;
+    padding-top: 70px;
+    padding-bottom: 20px;
     text-align: center;
+    font-size: 40px;
 }
 
 p {
-    font-size: 25px;
+    font-size: 30px;
     text-align: center;
+    margin-top: 40px;
 }
 
 .request {
@@ -54,7 +53,7 @@ p {
 .icon {
     width: 180px;
     display: inline-block;
-    margin: 50px 120px 0px 120px;
+    margin: 180px 120px 0px 120px;
 }
 
 .human {
