@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="10; http://localhost:8000/news/{{ news }}" />  {% comment %} 5秒後に指定のURLへリダイレクト {% endcomment %}
+    <title>News</title>
+    <!-- CSS only -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/index.css' %}">
+</head>
+
+<body>
+    <header>
+        <h1>INIAD Infomation</h1>
+    </header>
+    <div class="main">
+        <h2>{{ user.mail }}</h2>
+        {% if news == 1 %}
+            {% if reaction == "ok" %}
+                <h2>対面希望</h2>
+            {% else %}
+                <h2>オンラインを希望</h2>
+            {% endif %}
+        {% elif reaction == "ok" %}
+            <h2>OK</h2>
+        {% else %}
+            <h2>NG</h2>
+        {% endif %}
+    </div>
+
+
+</body>
+</html>
+</html>

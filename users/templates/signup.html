@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Signup</title>
+</head>
+
+<body>
+    <form action="{% url 'signup' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.file }}
+        <input name="name" placeholder="氏名">
+        <input name="mail" placeholder="メールアドレス">
+        <button type="submit">送信</button>
+    </form>
+</body>
+</html>
+</html>
