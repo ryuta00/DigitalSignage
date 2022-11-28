@@ -174,7 +174,8 @@ def camera(request, news, user):
             )
             ctx = {
                 "user": Student.objects.get(id=user),
-                "reaction": "ok"
+                "reaction": "ok",
+                "news": news
             }
             return render(request, 'result.html', ctx)
         if leftpoint >= 30:
@@ -186,7 +187,8 @@ def camera(request, news, user):
             )
             ctx = {
                 "user": Student.objects.get(id=user),
-                "reaction": "no"
+                "reaction": "no",
+                "news": news,
             }
             return render(request, 'result.html', ctx)
         checkcount += 1
