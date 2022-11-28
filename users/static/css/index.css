@@ -69,3 +69,10 @@ p {
 .left {
     transform: scale(-1, 1);
 }
+
+img {
+    display: block;
+    margin: auto;
+    padding: 150px;
+    width: 700px;
+}

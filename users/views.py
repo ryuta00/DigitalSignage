@@ -8,6 +8,9 @@ import tensorflow as tf
 import tensorflow_hub as hub
 import uuid
 import cv2
+import qrcode
+import base64
+from io import BytesIO
 
 from users.models import News, Reaction, Student, StudentReaction
 from users.forms import ImageUploadForm
@@ -382,3 +385,21 @@ def start(request):
     )
 
     return HttpResponse(p0)
+
+def gonews(request, news):
+    if news == '1':
+        img = qrcode.make("https://docs.google.com/forms/d/e/1FAIpQLSft4j-am02QvTO-xRPENDqUdKB4o1pjzTlTsmkk5KE_73Z3Vg/viewform?usp=sf_link")
+    elif news == '2':
+        img = qrcode.make("https://docs.google.com/forms/d/e/1FAIpQLSe9NpajZcmI3FqCRD9I8WEhPYM_icpL0Z-OwHAhuH-CwYpOmQ/viewform?usp=sf_link")
+    else:
+        return HttpResponse("エラー")
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    qr = base64.b64encode(buffer.getvalue()).decode()
+    ctx = {
+        "news": News.objects.get(id=news),
+        "qr": qr
+    }
+    return render(request, 'gonews.html', ctx)
+
+

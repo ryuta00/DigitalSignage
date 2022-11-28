@@ -18,6 +18,8 @@ urlpatterns = [
     path('camera/<news>/<user>/', views.camera, name='camera'),  # どちらの手を挙げているか調べる
     path('signup/', views.signup, name='signup'),  # 写真をアップロードして生徒登録
     path("", views.home, name='home'),
+
+    path("go/news/<news>/", views.gonews, name='gonews'),  # グーグル認証のスタート
 ]
 
 if settings.DEBUG:
