@@ -150,6 +150,7 @@ def reaction(request, news, user):
 
 def camera(request, news, user):
     # カメラ設定
+    # cap = cv2.VideoCapture("rtsp://root:password@192.168.0.90/axis-media/media.amp")
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
@@ -289,6 +290,7 @@ def match(request, news):
     # Create an inception resnet (in eval mode):
     resnet = InceptionResnetV1(pretrained='vggface2').eval()
 
+    # cap = cv2.VideoCapture("rtsp://root:password@192.168.0.90/axis-media/media.amp")
     cap = cv2.VideoCapture(0)
 
     user_id = ""

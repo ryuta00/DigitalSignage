@@ -70,7 +70,7 @@ p {
     transform: scale(-1, 1);
 }
 
-img {
+.qr {
     display: block;
     margin: auto;
     padding: 150px;
